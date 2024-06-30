@@ -1,5 +1,13 @@
 import re
+import os
+import shutil
 from enum import Enum
+import argparse
+
+parser = argparse.ArgumentParser()
+parser.add_argument('logseq_file', type=str)
+parser.add_argument('output_path', type=str)
+args = parser.parse_args()
 
 class LineType(Enum):
     TITLE = 1
@@ -19,9 +27,27 @@ class State(Enum):
     TRAVERSING_CODE_BLOCK = 2
     TRAVERSING_MULTILINE = 3
 
-file = open("sample.md", "r")
+
+output_project_path = os.path.join(args.output_path, os.path.basename(args.logseq_file))
+try:
+    os.mkdir(output_project_path)
+except FileExistsError:
+    pass
+out = open(os.path.join(output_project_path, os.path.basename(args.logseq_file)), "w")
+file = open(args.logseq_file, "r")
 lines_raw = file.readlines()
-out = open("out.md", "w")
+
+def get_file_info(file_path):
+    abs_path = os.path.abspath(file_path)
+    os.path.basename(abs_path)
+
+def import_asset(filename, subdir=""):
+    logseq_file_base_dir = os.path.dirname(os.path.abspath(args.logseq_file))
+    try:
+        os.mkdir(os.path.join(output_project_path, "assets"))
+    except FileExistsError:
+        pass
+    shutil.copy(os.path.join(logseq_file_base_dir, "..", "assets", subdir, filename), os.path.join(output_project_path, "assets", filename))
 
 def get_line_type(line):
     L1_tag = line_content_raw[0]
@@ -90,7 +116,7 @@ lines = []
 
 for line in lines_raw:
     # match any line and get its indentation level
-    line_re = re.search("^(\t*)(.*)$", line)    # TODO see if it's more convenient not to use $ at the end
+    line_re = re.search("^(\t*)(.*)$", line)
 
     if line_re is None:
         print("ERROR: no match on:", line)
@@ -116,7 +142,26 @@ for i in range(len(lines)):
 
     if lines[i]["type"] == LineType.CODE_BLOCK_MARKER:
         traversing_code_block = not traversing_code_block
+    elif lines[i]["content"].find("../assets") >= 0:
+        asset_re = re.search(r"(^.*\[.*\]\()(../)assets/(.*)\)", lines[i]["content"])
+        if asset_re is not None:
+            filename = asset_re.groups()[2]
+            print("Importing asset:", filename)
+            import_asset(filename)
+            lines[i]["content"] = asset_re.groups()[0] + "assets/" + asset_re.groups()[2] + ")"
+            
+            # TODO make sure this need not to be handled down below as well.
+    elif lines[i]["content"].find("{{renderer :drawio,") >= 0:
+        asset_re = re.search(r"(^.*){{renderer :drawio, (.*.svg)}}", lines[i]["content"])
+        if asset_re is not None:
+            filename = asset_re.groups()[1]
+            print("filename:", filename)
+            print("Importing asset:", filename)
+            import_asset(filename, subdir=os.path.join("storages", "logseq-drawio-plugin"))
+            lines[i]["content"] = asset_re.groups()[0] + "!["+ filename +"]"+ "(assets/"+ filename +")"
+            # TODO make sure this need not to be handled down below as well.
 
+    # {{renderer :drawio, 1715330124268.svg}}
 
     # CALCULATE TARGET INDENTATION 
     if i == 0:
