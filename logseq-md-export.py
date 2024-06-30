@@ -162,8 +162,13 @@ for i in range(len(lines)):
                 else:
                     content = lines[i]["content"][2:]
         elif lines[i]["type"] == LineType.TEXT:
-            # We might be in a multi-line content block of some kind.
-            content = lines[i]["content"][2:]
+            if lines[i]["content"].find("collapsed:: true") >= 0:
+                print("Removing logseq-specifc tag:", lines[i]["content"])
+                continue
+            else:
+                # We might be in a multi-line content block of some kind.
+                content = lines[i]["content"][2:]
+            # always terminate the line with a return
             if i < len(lines)-1 and lines[i+1]["type"] != lines[i]["type"]:
                 content = content + "\n"
         elif lines[i]["type"] == LineType.CODE:
