@@ -20,7 +20,7 @@ class State(Enum):
     TRAVERSING_MULTILINE = 3
 
 file = open("sample.md", "r")
-lines = file.readlines()
+lines_raw = file.readlines()
 out = open("out.md", "w")
 
 def get_line_type(line):
@@ -81,107 +81,126 @@ def get_line_type(line):
             return LineType.TEXT, LineHierarchy.CHILD
 
 
-last_parent_type = LineType.LIST
-last_line_indent = 0
 target_line_indent = 0
-status = State.CLEAR
 cur_list_depth = 0
 last_target_line_indent = 0
-i = 0
+traversing_code_block = False
 
-for line in lines:
+lines = []
+
+for line in lines_raw:
     # match any line and get its indentation level
-    line_re = re.search("^(\t*)(.*)$", line)
-    
+    line_re = re.search("^(\t*)(.*)$", line)    # TODO see if it's more convenient not to use $ at the end
+
     if line_re is None:
         print("ERROR: no match on:", line)
         continue
-    
+
     line_content_raw = line_re.groups()[1]
     line_indent = len(line_re.groups()[0])
     line_type, line_hierarchy = get_line_type(line)
         
-    print("[", line_indent, line_type, line_hierarchy, "]", ":", line_content_raw)
+    lines.append(
+        {
+            "content": line_content_raw,
+            "indent" : line_indent,
+            "type": line_type,
+            "hierarchy": line_hierarchy
+        }
+    )
 
-    if line_type != LineType.CODE_BLOCK_MARKER and status == State.TRAVERSING_CODE_BLOCK:
-        line_type = LineType.CODE
 
+for i in range(len(lines)):
+
+    print("[", lines[i]["indent"], lines[i]["type"], lines[i]["hierarchy"], "]", ":", lines[i]["content"])
+
+    if lines[i]["type"] == LineType.CODE_BLOCK_MARKER:
+        traversing_code_block = not traversing_code_block
+
+
+    # CALCULATE TARGET INDENTATION 
     if i == 0:
-        last_parent_type = line_type        
-
-    # CALCULATE TARGET INDENTATION AND UPDATE STATUS
-    if last_parent_type == LineType.TITLE:
+        target_line_indent = 0
+    elif lines[i]["type"] == LineType.TITLE or lines[i-1]["type"] == LineType.TITLE:
         # Titles have no indentation. 
         # Any element that comes immediately after a title must have no indentation as well
         target_line_indent = 0
-    elif last_parent_type == line_type or line_hierarchy == LineHierarchy.CHILD:
-        # If this row belongs to a series of row of the same kind...
-        if line_indent > last_line_indent:
-            # Standard markdown list: the first level is not indented, the subsequents are.
-            if line_type != LineType.CODE_BLOCK_MARKER or line_type != LineType.CODE:
-                cur_list_depth += 1
-                if cur_list_depth > 1:
-                    target_line_indent = last_target_line_indent + 1
-                    print("cacca", line_type)
-                else:
-                    target_line_indent = last_target_line_indent
-        elif line_indent < last_line_indent:
-            # Detect if this LIST element is less indendeted than the previous 
-            target_line_indent = last_target_line_indent - (last_line_indent - line_indent)
-            cur_list_depth -= 1
+        cur_list_depth = 0
+    elif lines[i]["type"] == LineType.CODE or lines[i]["type"] == LineType.CODE_BLOCK_MARKER:
+        target_line_indent = last_target_line_indent
+    # elif lines[i-1]["type"] == lines[i]["type"] or lines[i]["hierarchy"] == LineHierarchy.CHILD:
+    #     # If this row belongs to a series of rows of the same kind...
+    #     if lines[i]["indent"] > lines[i-1]["indent"]:
+    #         # Standard markdown list: the first level is not indented, the subsequents are.
+    #         cur_list_depth += 1
+    #         if cur_list_depth > 1:
+    #             target_line_indent = last_target_line_indent + 1
+    #         else:
+    #             target_line_indent = last_target_line_indent
+    #     elif lines[i]["indent"] < lines[i-1]["indent"]:
+    #         # Detect if this LIST element is less indendeted than the previous 
+    #         target_line_indent = last_target_line_indent - (lines[i-1]["indent"] - lines[i]["indent"])
+    #         cur_list_depth -= 1
+    #     else:
+    #         target_line_indent = last_target_line_indent
+
+    if lines[i]["indent"] > lines[i-1]["indent"] and not lines[i-1]["type"] == LineType.TITLE:
+        # Standard markdown list: the first level is not indented, the subsequents are.
+        cur_list_depth += 1
+        if cur_list_depth > 1:
+            target_line_indent = last_target_line_indent + 1
         else:
             target_line_indent = last_target_line_indent
-
-    # Represent each line depending on its type
-    if line_type == LineType.TITLE:
-        content = line[line.find("#"):]
-        last_line_indent = 0
-        target_line_indent = 0
-        cur_list_depth = 0
-    elif line_type == LineType.LIST:
-        if cur_list_depth > 0:
-            content = line[line.find("-"):]  # TODO re-evaluate correctness of IF / ELSE action
-        else:
-            content = line[line.find("-")+2:-1] + "<br>\n"
-    elif line_type == LineType.TEXT:
-        # We might be in a multi-line content block of some kind.
-        # content = line[3:]
-        content = line_content_raw[2:] + "\n"
-        if last_parent_type == LineType.QUOTE:
-            # we are in a multi-line quote block.
-            content = "\\\n" + line_content_raw[2:]
-    elif line_type == LineType.CODE:
-        target_line_indent = last_target_line_indent
-        content = line_content_raw[2:] + "\n"
-    elif line_type == LineType.EMPTY:
-        content = "<br><br>\n"
-    elif line_type == LineType.CODE_BLOCK_MARKER:
-        target_line_indent = last_target_line_indent
-        if status == State.TRAVERSING_CODE_BLOCK:
-            status = State.CLEAR
-        else:
-            status = State.TRAVERSING_CODE_BLOCK
-        content = line[line.find("`"):] # TODO substitute all line.find() with line_content_raw[idx:]
-    elif line_type == LineType.QUOTE:
-        content = line_content_raw[2:]
+    elif lines[i]["indent"] < lines[i-1]["indent"]:
+        # Detect if this LIST element is less indendeted than the previous 
+        target_line_indent = last_target_line_indent - (lines[i-1]["indent"] - lines[i]["indent"])
+        cur_list_depth -= 1
     else:
-        content = line
+        target_line_indent = last_target_line_indent
 
-    print("last_parent_type:", last_parent_type, "last_line_indent:", last_line_indent, "last_target_line_indent:", last_target_line_indent, "target_line_indent:", target_line_indent)
-    print("status:", status)
+    if traversing_code_block:
+        content = lines[i]["content"][2:]
+    else:
+        # Represent each line depending on its type
+        if lines[i]["type"] == LineType.TITLE:
+            content = lines[i]["content"][lines[i]["content"].find("#"):]
+            cur_list_depth = 0
+        elif lines[i]["type"] == LineType.LIST:
+            if cur_list_depth > 0:
+                content = lines[i]["content"]
+            else:
+                if lines[i+1]["type"] == LineType.LIST and lines[i+1]["indent"] == lines[i]["indent"]:
+                    content = lines[i]["content"][2:] + "\\"
+                else:
+                    content = lines[i]["content"][2:]
+            # if lines[i+1]["type"] == LineType.TEXT:
+            #     content = content + "\\"
+        elif lines[i]["type"] == LineType.TEXT:
+            # We might be in a multi-line content block of some kind.
+            content = lines[i]["content"][2:]
+        elif lines[i]["type"] == LineType.CODE:
+            content = lines[i]["content"][2:]
+        elif lines[i]["type"] == LineType.EMPTY:
+            content = "<br>\n"
+        elif lines[i]["type"] == LineType.CODE_BLOCK_MARKER:
+            content = lines[i]["content"][2:]
+        elif lines[i]["type"] == LineType.QUOTE:
+            content = lines[i]["content"]
+
+        if lines[i+1]["type"] == LineType.TEXT and not traversing_code_block:
+            content = content + "\\"
+
+    content = content + "\n"
+
+    print("last_target_line_indent:", last_target_line_indent, "target_line_indent:", target_line_indent)
     print("cur_list_depth:", cur_list_depth)
 
     tabs = "".join(["\t" for _ in range(target_line_indent)])
     content = tabs + content
     # only update previous element type for next cycle when a new element starts
     if line_hierarchy == LineHierarchy.PARENT:
-        last_parent_type = line_type
-        last_line_indent = line_indent
         last_target_line_indent = target_line_indent
 
-    i += 1
-    if i > 120:
-        exit(0)
     print("")
 
     out.write(content)
