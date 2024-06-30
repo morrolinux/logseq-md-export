@@ -125,38 +125,23 @@ for i in range(len(lines)):
         # Titles have no indentation. 
         # Any element that comes immediately after a title must have no indentation as well
         target_line_indent = 0
-        cur_list_depth = 0
     elif lines[i]["type"] == LineType.CODE or lines[i]["type"] == LineType.CODE_BLOCK_MARKER:
         target_line_indent = last_target_line_indent
-    # elif lines[i-1]["type"] == lines[i]["type"] or lines[i]["hierarchy"] == LineHierarchy.CHILD:
-    #     # If this row belongs to a series of rows of the same kind...
-    #     if lines[i]["indent"] > lines[i-1]["indent"]:
-    #         # Standard markdown list: the first level is not indented, the subsequents are.
-    #         cur_list_depth += 1
-    #         if cur_list_depth > 1:
-    #             target_line_indent = last_target_line_indent + 1
-    #         else:
-    #             target_line_indent = last_target_line_indent
-    #     elif lines[i]["indent"] < lines[i-1]["indent"]:
-    #         # Detect if this LIST element is less indendeted than the previous 
-    #         target_line_indent = last_target_line_indent - (lines[i-1]["indent"] - lines[i]["indent"])
-    #         cur_list_depth -= 1
-    #     else:
-    #         target_line_indent = last_target_line_indent
-
-    if lines[i]["indent"] > lines[i-1]["indent"] and not lines[i-1]["type"] == LineType.TITLE:
-        # Standard markdown list: the first level is not indented, the subsequents are.
-        cur_list_depth += 1
-        if cur_list_depth > 1:
-            target_line_indent = last_target_line_indent + 1
+    elif lines[i-1]["type"] == lines[i]["type"] or lines[i]["hierarchy"] == LineHierarchy.CHILD:
+        # If this row belongs to a series of rows of the same kind...
+        if lines[i]["indent"] > lines[i-1]["indent"]:
+            # Standard markdown list: the first level is not indented, the subsequents are.
+            cur_list_depth += 1
+            if cur_list_depth > 1:
+                target_line_indent = last_target_line_indent + 1
+            else:
+                target_line_indent = last_target_line_indent
+        elif lines[i]["indent"] < lines[i-1]["indent"]:
+            # Detect if this LIST element is less indendeted than the previous 
+            target_line_indent = last_target_line_indent - (lines[i-1]["indent"] - lines[i]["indent"])
+            cur_list_depth -= 1
         else:
             target_line_indent = last_target_line_indent
-    elif lines[i]["indent"] < lines[i-1]["indent"]:
-        # Detect if this LIST element is less indendeted than the previous 
-        target_line_indent = last_target_line_indent - (lines[i-1]["indent"] - lines[i]["indent"])
-        cur_list_depth -= 1
-    else:
-        target_line_indent = last_target_line_indent
 
     if traversing_code_block:
         content = lines[i]["content"][2:]
