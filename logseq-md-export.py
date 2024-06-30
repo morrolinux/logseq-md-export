@@ -154,7 +154,7 @@ for i in range(len(lines)):
             if cur_list_depth > 0:
                 content = lines[i]["content"]
             else:
-                if lines[i+1]["type"] == LineType.LIST and lines[i+1]["indent"] == lines[i]["indent"]:
+                if i < len(lines)-1 and i < len(lines)-1 and lines[i+1]["type"] == LineType.LIST and lines[i+1]["indent"] == lines[i]["indent"]:
                     content = lines[i]["content"][2:] + "\\"
                 else:
                     content = lines[i]["content"][2:]
@@ -172,7 +172,7 @@ for i in range(len(lines)):
         elif lines[i]["type"] == LineType.QUOTE:
             content = lines[i]["content"]
 
-        if lines[i+1]["type"] == LineType.TEXT and not traversing_code_block:
+        if i < len(lines)-1 and lines[i+1]["type"] == LineType.TEXT and not traversing_code_block:
             content = content + "\\"
 
     content = content + "\n"
