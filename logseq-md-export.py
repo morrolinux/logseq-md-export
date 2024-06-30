@@ -127,7 +127,8 @@ for i in range(len(lines)):
         target_line_indent = 0
     elif lines[i]["type"] == LineType.CODE or lines[i]["type"] == LineType.CODE_BLOCK_MARKER:
         target_line_indent = last_target_line_indent
-    elif lines[i-1]["type"] == lines[i]["type"] or lines[i]["hierarchy"] == LineHierarchy.CHILD:
+
+    if lines[i]["type"] != LineType.TITLE and lines[i-1]["type"] != LineType.TITLE:
         # If this row belongs to a series of rows of the same kind...
         if lines[i]["indent"] > lines[i-1]["indent"]:
             # Standard markdown list: the first level is not indented, the subsequents are.
@@ -153,16 +154,18 @@ for i in range(len(lines)):
         elif lines[i]["type"] == LineType.LIST:
             if cur_list_depth > 0:
                 content = lines[i]["content"]
+                if lines[i+1]["indent"] < lines[i]["indent"]:
+                    content = content + "\n"
             else:
                 if i < len(lines)-1 and i < len(lines)-1 and lines[i+1]["type"] == LineType.LIST and lines[i+1]["indent"] == lines[i]["indent"]:
                     content = lines[i]["content"][2:] + "\\"
                 else:
                     content = lines[i]["content"][2:]
-            # if lines[i+1]["type"] == LineType.TEXT:
-            #     content = content + "\\"
         elif lines[i]["type"] == LineType.TEXT:
             # We might be in a multi-line content block of some kind.
             content = lines[i]["content"][2:]
+            if i < len(lines)-1 and lines[i+1]["type"] != lines[i]["type"]:
+                content = content + "\n"
         elif lines[i]["type"] == LineType.CODE:
             content = lines[i]["content"][2:]
         elif lines[i]["type"] == LineType.EMPTY:
@@ -170,10 +173,11 @@ for i in range(len(lines)):
         elif lines[i]["type"] == LineType.CODE_BLOCK_MARKER:
             content = lines[i]["content"][2:]
         elif lines[i]["type"] == LineType.QUOTE:
-            content = lines[i]["content"]
+            content = lines[i]["content"][2:]
 
-        if i < len(lines)-1 and lines[i+1]["type"] == LineType.TEXT and not traversing_code_block:
-            content = content + "\\"
+        if lines[i]["type"] != LineType.CODE_BLOCK_MARKER:
+            if i < len(lines)-1 and lines[i+1]["type"] == LineType.TEXT and not lines[i]["type"] == LineType.TITLE:
+                content = content + "\\"
 
     content = content + "\n"
 
