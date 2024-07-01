@@ -171,8 +171,6 @@ for i in range(len(lines)):
         # Titles have no indentation. 
         # Any element that comes immediately after a title must have no indentation as well
         target_line_indent = 0
-    elif lines[i]["type"] == LineType.CODE or lines[i]["type"] == LineType.CODE_BLOCK_MARKER:
-        target_line_indent = last_target_line_indent
 
     if lines[i]["type"] != LineType.TITLE and lines[i-1]["type"] != LineType.TITLE:
         # If this row belongs to a series of rows of the same kind...
@@ -185,7 +183,7 @@ for i in range(len(lines)):
                 target_line_indent = last_target_line_indent
         elif lines[i]["indent"] < lines[i-1]["indent"]:
             # Detect if this LIST element is less indendeted than the previous 
-            target_line_indent = last_target_line_indent - (lines[i-1]["indent"] - lines[i]["indent"])
+            target_line_indent = max(0, last_target_line_indent - (lines[i-1]["indent"] - lines[i]["indent"]))
             cur_list_depth -= 1
         else:
             target_line_indent = last_target_line_indent
@@ -232,15 +230,15 @@ for i in range(len(lines)):
 
     content = content + "\n"
 
-    print("last_target_line_indent:", last_target_line_indent, "target_line_indent:", target_line_indent)
-    print("cur_list_depth:", cur_list_depth)
 
     tabs = "".join(["\t" for _ in range(target_line_indent)])
     content = tabs + content
     # only update previous element type for next cycle when a new element starts
-    if line_hierarchy == LineHierarchy.PARENT:
+    if lines[i]["hierarchy"] == LineHierarchy.PARENT:
         last_target_line_indent = target_line_indent
 
+    print("last_target_line_indent:", last_target_line_indent, "target_line_indent:", target_line_indent)
+    print("cur_list_depth:", cur_list_depth)
     print("")
 
     out.write(content)
