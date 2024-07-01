@@ -112,7 +112,7 @@ target_line_indent = 0
 cur_list_depth = 0
 last_target_line_indent = 0
 traversing_code_block = False
-
+lines_to_skip = 0
 lines = []
 
 for line in lines_raw:
@@ -139,6 +139,10 @@ for line in lines_raw:
 
 for i in range(len(lines)):
 
+    if lines_to_skip > 0:
+        lines_to_skip -= 1
+        continue
+
     print("[", lines[i]["indent"], lines[i]["type"], lines[i]["hierarchy"], "]", ":", lines[i]["content"])
 
     if lines[i]["type"] == LineType.CODE_BLOCK_MARKER:
@@ -161,8 +165,26 @@ for i in range(len(lines)):
             import_asset(filename, subdir=os.path.join("storages", "logseq-drawio-plugin"))
             lines[i]["content"] = asset_re.groups()[0] + "!["+ filename +"]"+ "(assets/"+ filename +")"
             # TODO make sure this need not to be handled down below as well.
-
-    # {{renderer :drawio, 1715330124268.svg}}
+    elif lines[i]["content"].find("- TODO ") >= 0:
+        checkbox_re = re.search(r"(^\t*)- TODO (.*)$", lines[i]["content"])
+        if checkbox_re is not None:
+            lines[i]["content"] = checkbox_re.groups()[0] + "- **&#x2610;" + " TODO** " + checkbox_re.groups()[1]
+    elif lines[i]["content"].find("- DOING ") >= 0:
+        checkbox_re = re.search(r"(^\t*)- DOING (.*)$", lines[i]["content"])
+        if checkbox_re is not None:
+            lines[i]["content"] = checkbox_re.groups()[0] + "- **&#x231B;" + " DOING** " + checkbox_re.groups()[1]
+    elif lines[i]["content"].find("- DONE ") >= 0:
+        checkbox_re = re.search(r"(^\t*)- DONE (.*)$", lines[i]["content"])
+        if checkbox_re is not None:
+            lines[i]["content"] = checkbox_re.groups()[0] + "- **&#x2611;** ~~" + checkbox_re.groups()[1] + "~~"  
+    elif lines[i]["content"].find("- LATER ") >= 0:
+        checkbox_re = re.search(r"(^\t*)- LATER (.*)$", lines[i]["content"])
+        if checkbox_re is not None:
+            lines[i]["content"] = checkbox_re.groups()[0] + "- **&#x23F2;" + " LATER** " + checkbox_re.groups()[1]  
+    elif lines[i]["content"].find("- NOW ") >= 0:
+        checkbox_re = re.search(r"(^\t*)- NOW (.*)$", lines[i]["content"])
+        if checkbox_re is not None:
+            lines[i]["content"] = checkbox_re.groups()[0] + "- **&#x23F0;" + " NOW** " + checkbox_re.groups()[1]  
 
     # CALCULATE TARGET INDENTATION 
     if i == 0:
@@ -208,6 +230,13 @@ for i in range(len(lines)):
         elif lines[i]["type"] == LineType.TEXT:
             if lines[i]["content"].find("collapsed:: true") >= 0:
                 print("Removing logseq-specifc tag:", lines[i]["content"])
+                continue
+            if lines[i]["content"].find(":LOGBOOK:") >= 0:
+                print("Removing logseq-specifc tag and all subsequent entries:", lines[i]["content"])
+                for l in range(i, len(lines)):
+                    if lines[l]["content"].find(":END:") >= 0:
+                        break
+                    lines_to_skip += 1
                 continue
             else:
                 # We might be in a multi-line content block of some kind.
