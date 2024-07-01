@@ -1,0 +1,103 @@
+diff -Naur ./blackmagic-io-12.8.1a1.orig/bm_locks.c ./blackmagic-io-12.8.1a1/bm_locks.c
+--- ./blackmagic-io-12.8.1a1.orig/bm_locks.c	2024-02-09 02:02:38.000000000 +0100
++++ ./blackmagic-io-12.8.1a1/bm_locks.c	2024-04-08 10:31:15.502799014 +0200
+@@ -31,6 +31,9 @@
+ #if KERNEL_VERSION_OR_LATER(4, 11, 0)
+ 	#include <linux/sched/debug.h>
+ #endif
++#if KERNEL_VERSION_OR_LATER(6, 8, 0)
++	#include <linux/mutex.h>
++#endif
+ #include "bm_locks.h"
+ #include "bm_util.h"
+ 
+diff -Naur ./blackmagic-io-12.8.1a1.orig/bm_mm.c ./blackmagic-io-12.8.1a1/bm_mm.c
+--- ./blackmagic-io-12.8.1a1.orig/bm_mm.c	2024-02-09 02:02:38.000000000 +0100
++++ ./blackmagic-io-12.8.1a1/bm_mm.c	2024-04-08 10:42:57.193768026 +0200
+@@ -237,7 +237,11 @@
+ 
+ int bm_dma_sg_bus_map(bm_pci_device_t* pci, bm_sg_table_t* sgTable, bm_dma_direction_t dir)
+ {
++#if KERNEL_VERSION_OR_LATER(6, 8, 0)
++	int nents = dma_map_sg(&pci->pdev->dev, sgTable->sgl, sgTable->orig_nents, (enum dma_data_direction) dir);
++#else
+ 	int nents = dma_map_sg(&pci->pdev->dev, sgTable->sgl, sgTable->orig_nents, dir);
++#endif
+ 	if (unlikely(nents <= 0))
+ 	{
+ 		sg_free_table(sgTable);
+@@ -254,7 +258,11 @@
+ 
+ void bm_dma_sg_bus_unmap(bm_pci_device_t* pci, bm_sg_table_t* sgTable, bm_dma_direction_t dir)
+ {
++#if KERNEL_VERSION_OR_LATER(6, 8, 0)
++	dma_unmap_sg(&pci->pdev->dev, sgTable->sgl, sgTable->orig_nents, (enum dma_data_direction) dir);
++#else
+ 	dma_unmap_sg(&pci->pdev->dev, sgTable->sgl, sgTable->orig_nents, dir);
++#endif
+ 	bm_atomic_sub(&statistics.pages_mapped, sgTable->orig_nents);
+ 	sg_free_table(sgTable);
+ 	kfree(sgTable);
+@@ -341,7 +349,11 @@
+ 	bm_dma_subpage_t* subpage = kzalloc(sizeof(*subpage), GFP_KERNEL);
+ 	if (! subpage)
+ 		return NULL;
++#if KERNEL_VERSION_OR_LATER(6, 8, 0)
++	subpage->busAddr = dma_map_single(&pci->pdev->dev, addr, size, (enum dma_data_direction) dir);
++#else
+ 	subpage->busAddr = dma_map_single(&pci->pdev->dev, addr, size, dir);
++#endif
+ 	if (dma_mapping_error(&pci->pdev->dev, subpage->busAddr))
+ 	{
+ 		kfree(subpage);
+@@ -354,7 +366,11 @@
+ 
+ void bm_dma_bus_unmap_kernel_subpage(bm_pci_device_t* pci, bm_dma_subpage_t* subpage, bm_dma_direction_t dir)
+ {
++#if KERNEL_VERSION_OR_LATER(6, 8, 0)
++	dma_unmap_single(&pci->pdev->dev, subpage->busAddr, subpage->size, (enum dma_data_direction) dir);
++#else
+ 	dma_unmap_single(&pci->pdev->dev, subpage->busAddr, subpage->size, dir);
++#endif
+ 	bm_atomic_sub(&statistics.memory_mapped, subpage->size);
+ 	kfree(subpage);
+ }
+diff -Naur ./blackmagic-io-12.8.1a1.orig/bm_util.c ./blackmagic-io-12.8.1a1/bm_util.c
+--- ./blackmagic-io-12.8.1a1.orig/bm_util.c	2024-02-09 02:02:38.000000000 +0100
++++ ./blackmagic-io-12.8.1a1/bm_util.c	2024-04-08 10:37:57.007781283 +0200
+@@ -137,7 +137,11 @@
+ 		alloc_size += align - 1;
+ 	}
+ 
++#if KERNEL_VERSION_OR_LATER(6, 8, 0)
++	if (get_order(alloc_size) < MAX_PAGE_ORDER)
++#else
+ 	if (get_order(alloc_size) < MAX_ORDER)
++#endif
+ 		mem = (vm_address_t)kmalloc(alloc_size, GFP_KERNEL);
+ 
+ 	if (mem == 0 && (flags & BM_ALLOC_CONTIGUOUS) == 0)
+@@ -532,7 +536,11 @@
+ 		INIT_HLIST_HEAD(&event_table.events[i]);
+ }
+ 
++#if KERNEL_VERSION_OR_LATER(6, 8, 0)
++static bm_event_t* get_event(void* event, bool create)
++#else
+ bm_event_t* get_event(void* event, bool create)
++#endif
+ {
+ 	bm_event_t* ev;
+ 	unsigned idx = hash_ptr(event, EVENT_TABLE_BITS);
+@@ -572,7 +580,11 @@
+ 	return ev;
+ }
+ 
++#if KERNEL_VERSION_OR_LATER(6, 8, 0)
++static void put_event(bm_event_t* ev)
++#else
+ void put_event(bm_event_t* ev)
++#endif
+ {
+ 	unsigned long flags;
+ 	spin_lock_irqsave(&event_table.lock, flags);
