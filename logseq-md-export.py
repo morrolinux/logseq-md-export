@@ -23,20 +23,14 @@ class LineHierarchy(Enum):
     PARENT = 1
     CHILD = 2
 
-class State(Enum):
-    CLEAR = 1
-    TRAVERSING_CODE_BLOCK = 2
-    TRAVERSING_MULTILINE = 3
-
-
+# Open logseq page and create output folder
+file = open(args.logseq_file, "r")
 output_project_path = os.path.join(args.output_path, os.path.basename(args.logseq_file))
 try:
     os.mkdir(output_project_path)
 except FileExistsError:
     pass
 out = open(os.path.join(output_project_path, os.path.basename(args.logseq_file)), "w")
-file = open(args.logseq_file, "r")
-lines_raw = file.readlines()
 
 def get_file_info(file_path):
     abs_path = os.path.abspath(file_path)
@@ -114,6 +108,8 @@ last_target_line_indent = 0
 traversing_code_block = False
 lines_to_skip = 0
 lines = []
+
+lines_raw = file.readlines()
 
 for line in lines_raw:
     # match any line and get its indentation level
@@ -266,8 +262,8 @@ for i in range(len(lines)):
     if lines[i]["hierarchy"] == LineHierarchy.PARENT:
         last_target_line_indent = target_line_indent
 
-    print("last_target_line_indent:", last_target_line_indent, "target_line_indent:", target_line_indent)
-    print("cur_list_depth:", cur_list_depth)
-    print("")
+    # print("last_target_line_indent:", last_target_line_indent, "target_line_indent:", target_line_indent)
+    # print("cur_list_depth:", cur_list_depth)
+    # print("")
 
     out.write(content)
