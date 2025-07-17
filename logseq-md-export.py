@@ -24,13 +24,13 @@ class LineHierarchy(Enum):
     CHILD = 2
 
 # Open logseq page and create output folder
-file = open(args.logseq_file, "r")
+file = open(args.logseq_file, "r", encoding="utf-8")
 output_project_path = os.path.join(args.output_path, os.path.basename(args.logseq_file))
 try:
     os.mkdir(output_project_path)
 except FileExistsError:
     pass
-out = open(os.path.join(output_project_path, os.path.basename(args.logseq_file)), "w")
+out = open(os.path.join(output_project_path, os.path.basename(args.logseq_file)), "w", encoding="utf-8")
 
 def get_file_info(file_path):
     abs_path = os.path.abspath(file_path)
@@ -216,10 +216,10 @@ for i in range(len(lines)):
         elif lines[i]["type"] == LineType.LIST:
             if cur_list_depth > 0:
                 content = lines[i]["content"]
-                if lines[i+1]["indent"] < lines[i]["indent"]:
+                if i < len(lines) - 1 and lines[i+1]["indent"] < lines[i]["indent"]:
                     content = content + "\n"
             else:
-                if i < len(lines)-1 and i < len(lines)-1 and lines[i+1]["type"] == LineType.LIST and lines[i+1]["indent"] == lines[i]["indent"]:
+                if i < len(lines) - 1 and lines[i+1]["type"] == LineType.LIST and lines[i+1]["indent"] == lines[i]["indent"]:
                     content = lines[i]["content"][2:] + "\\"
                 else:
                     content = lines[i]["content"][2:]
@@ -238,7 +238,7 @@ for i in range(len(lines)):
                 # We might be in a multi-line content block of some kind.
                 content = lines[i]["content"][2:]
             # always terminate the line with a return
-            if i < len(lines)-1 and lines[i+1]["type"] != lines[i]["type"]:
+            if i < len(lines) - 1 and lines[i+1]["type"] != lines[i]["type"]:
                 content = content + "\n"
         elif lines[i]["type"] == LineType.CODE:
             content = lines[i]["content"][2:]
@@ -250,7 +250,7 @@ for i in range(len(lines)):
             content = lines[i]["content"][2:]
 
         if lines[i]["type"] != LineType.CODE_BLOCK_MARKER:
-            if i < len(lines)-1 and lines[i+1]["type"] == LineType.TEXT and not lines[i]["type"] == LineType.TITLE:
+            if i < len(lines) - 1 and lines[i+1]["type"] == LineType.TEXT and not lines[i]["type"] == LineType.TITLE:
                 content = content + "\\"
 
     content = content + "\n"
@@ -264,6 +264,5 @@ for i in range(len(lines)):
 
     # print("last_target_line_indent:", last_target_line_indent, "target_line_indent:", target_line_indent)
     # print("cur_list_depth:", cur_list_depth)
-    # print("")
-
     out.write(content)
+print("Done")
